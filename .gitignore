@@ -1,0 +1,6 @@
+.env
+.env.*
+!.env.example
+
+PROMPT.md
+prompt1.md
