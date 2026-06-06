@@ -1,6 +1,11 @@
 .env
 .env.*
 !.env.example
+!*.env.example
 
 PROMPT.md
 prompt1.md
+
+backend/.env
+frontend/.env.local
+database/.env
