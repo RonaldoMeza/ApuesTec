@@ -59,7 +59,7 @@ ApuesTec/
 
 ## Ejecucion local con Docker Compose
 
-Docker Compose levanta el monorepo con los servicios base de infraestructura para desarrollo local. Nginx es el unico punto de entrada externo; el backend, PostgreSQL y Redis quedan disponibles dentro de la red interna de Docker.
+Docker Compose levanta el monorepo con los servicios base de infraestructura para desarrollo local. Nginx es el unico punto de entrada publico; el backend y Redis quedan disponibles solo dentro de la red interna de Docker. PostgreSQL mantiene su comunicacion interna por `postgres:5432` y expone `localhost:5433` unicamente para administracion local en desarrollo.
 
 Antes de levantar el entorno, crea los archivos locales de variables desde las plantillas:
 
@@ -109,6 +109,7 @@ docker compose up --scale backend=3
 - `frontend:3000`: puerto interno del frontend Next.js.
 - `backend:8080`: puerto interno de la API Go/Gin.
 - `postgres:5432`: puerto interno de PostgreSQL.
+- `localhost:5433`: puerto local de administracion de PostgreSQL para desarrollo, por ejemplo pgAdmin instalado en la maquina host.
 - `redis:6379`: puerto interno de Redis.
 
 ## Servicios levantados
@@ -124,6 +125,68 @@ docker compose up --scale backend=3
 
 PostgreSQL es la fuente oficial de verdad de ApuesTec. Redis se usa como cache y optimizacion para futuras funciones como rankings, rate limiting e invitaciones temporales; los datos criticos deben poder reconstruirse desde PostgreSQL.
 
+## Inicializacion de base de datos local
+
+Ejecuta estos comandos desde la raiz del proyecto. Los contenedores deben estar levantados y los scripts requieren ejecucion manual; Docker Compose no aplica migraciones ni seeds automaticamente.
+
+```powershell
+docker compose up --build -d
+.\database\scripts\apply-migrations.ps1
+.\database\scripts\apply-seeds.ps1
+.\database\scripts\check-tables.ps1
+```
+
+No se deben commitear archivos `.env` reales. Nginx sigue siendo el punto de entrada publico en `http://localhost:8081`.
+
+## Migraciones y seeds de base de datos
+
+La estructura inicial de PostgreSQL vive en `database/`:
+
+- `database/migrations/001_init_schema.up.sql`: crea el esquema inicial.
+- `database/migrations/001_init_schema.down.sql`: revierte el esquema inicial.
+- `database/seeds/001_seed_roles.sql`: inserta roles globales minimos.
+- `database/seeds/002_seed_sample_teams_matches.sql`: inserta equipos y partidos de prueba local.
+
+Ejecutar migracion y seeds en PowerShell:
+
+```powershell
+docker compose up -d postgres
+.\database\scripts\apply-migrations.ps1
+.\database\scripts\apply-seeds.ps1
+```
+
+Validar tablas:
+
+```powershell
+.\database\scripts\check-tables.ps1
+```
+
+Resetear la base local de desarrollo, eliminando y recreando tablas y datos locales:
+
+```powershell
+.\database\scripts\reset-database.ps1
+```
+
+## Conexion local desde pgAdmin
+
+Para inspeccionar PostgreSQL desde pgAdmin instalado en la maquina host, crea un servidor con estos parametros:
+
+- Host: `localhost`
+- Port: `5433`
+- Database: valor de `POSTGRES_DB` en `database/.env`
+- User: valor de `POSTGRES_USER` en `database/.env`
+- Password: valor de `POSTGRES_PASSWORD` en `database/.env`
+
+El puerto `5433` existe solo para administracion local en desarrollo. La aplicacion dentro de Docker no lo usa: el backend debe seguir conectandose a PostgreSQL mediante `DATABASE_URL` con `postgres:5432`. Redis no se expone al host y Nginx sigue siendo el unico punto de entrada publico por `http://localhost:8081`.
+
+Revertir migracion:
+
+```powershell
+Get-Content -Raw database/migrations/001_init_schema.down.sql | docker compose exec -T postgres psql -U apuestec_user -d apuestec
+```
+
+Mas detalles operativos estan en `database/README.md` y `docs/fases/FASE_03_BASE_DATOS.md`.
+
 ## Variables de entorno
 
 Docker Compose carga variables desde estos archivos locales:
@@ -138,7 +201,7 @@ Variables clave por capa:
 - Backend: `APP_NAME`, `APP_ENV`, `APP_PORT`, `API_PREFIX`, `APP_PUBLIC_URL`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`.
 - Frontend: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 
-No se deben commitear archivos `.env` reales ni secretos. El backend usa `postgres` y `redis` como hosts internos de Docker en `DATABASE_URL` y `REDIS_URL`.
+No se deben commitear archivos `.env` reales ni secretos. El backend usa `postgres` y `redis` como hosts internos de Docker en `DATABASE_URL` y `REDIS_URL`; `DATABASE_URL` debe mantenerse apuntando a `postgres:5432` dentro de la red interna.
 
 ## k6
 

@@ -5,6 +5,7 @@
 
 PROMPT.md
 prompt1.md
+prompt3.md
 
 backend/.env
 frontend/.env.local
