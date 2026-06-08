@@ -31,6 +31,8 @@ type Config struct {
 	CookieSecure       bool
 	CookieSameSite     string
 	LogLevel           string
+	LoginMaxAttempts   int
+	LoginLockMinutes   int
 }
 
 func Load() (*Config, error) {
@@ -82,6 +84,16 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	loginMaxAttempts, err := parseIntEnv("LOGIN_MAX_ATTEMPTS", 5)
+	if err != nil {
+		return nil, err
+	}
+
+	loginLockMinutes, err := parseIntEnv("LOGIN_LOCK_MINUTES", 15)
+	if err != nil {
+		return nil, err
+	}
+
 	origins := splitCSV(getEnv("CORS_ALLOWED_ORIGINS", values["FRONTEND_URL"]))
 	if len(origins) == 0 {
 		return nil, errors.New("CORS_ALLOWED_ORIGINS must contain at least one origin")
@@ -109,6 +121,8 @@ func Load() (*Config, error) {
 		CookieSecure:       cookieSecure,
 		CookieSameSite:     getEnv("COOKIE_SAME_SITE", "Lax"),
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
+		LoginMaxAttempts:   loginMaxAttempts,
+		LoginLockMinutes:   loginLockMinutes,
 	}, nil
 }
 

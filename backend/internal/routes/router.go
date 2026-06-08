@@ -9,11 +9,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/audit"
+	appauth "github.com/RonaldoMeza/ApuesTec/backend/internal/auth"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/config"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/database"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/middleware"
 	appredis "github.com/RonaldoMeza/ApuesTec/backend/internal/redis"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/response"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/roles"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/users"
 )
 
 func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) *gin.Engine {
@@ -26,10 +30,30 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 		middleware.SecurityHeaders(),
 	)
 
+	userRepo := users.NewRepository(db)
+	authRepo := appauth.NewRepository(db)
+	roleRepo := roles.NewRepository(db)
+	auditRepo := audit.NewRepository(db)
+
+	authSvc := appauth.NewService(userRepo, authRepo, roleRepo, auditRepo, cfg)
+	authHandler := appauth.NewHandler(authSvc)
+
 	api := router.Group(cfg.APIPrefix)
 	{
 		api.GET("/health", health(cfg))
 		api.GET("/health/dependencies", dependenciesHealth(db, redisClient))
+
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.Refresh)
+			auth.POST("/logout", authHandler.Logout)
+			auth.POST("/google", authHandler.GoogleAuth)
+
+			auth.GET("/me", appauth.AuthMiddleware(cfg.JWTAccessSecret), authHandler.Me)
+			auth.POST("/change-password", appauth.AuthMiddleware(cfg.JWTAccessSecret), authHandler.ChangePassword)
+		}
 	}
 
 	return router
