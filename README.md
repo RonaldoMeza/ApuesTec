@@ -115,7 +115,7 @@ docker compose up --scale backend=3
 ## Servicios levantados
 
 - `frontend`: aplicacion base Next.js para desarrollo local.
-- `backend`: API Go/Gin minima con `GET /api/v1/health`.
+- `backend`: API Go/Gin base con health checks y validacion de dependencias internas.
 - `postgres`: base de datos principal de ApuesTec con volumen persistente.
 - `redis`: cache y capa de optimizacion con volumen persistente.
 - `nginx`: reverse proxy y punto de entrada principal.
@@ -124,6 +124,24 @@ docker compose up --scale backend=3
 ## Persistencia y cache
 
 PostgreSQL es la fuente oficial de verdad de ApuesTec. Redis se usa como cache y optimizacion para futuras funciones como rankings, rate limiting e invitaciones temporales; los datos criticos deben poder reconstruirse desde PostgreSQL.
+
+## Health checks del backend
+
+Nginx es el unico punto de entrada publico. Valida el backend desde la raiz del proyecto con:
+
+```powershell
+docker compose up --build -d
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:8081/api/v1/health
+Invoke-WebRequest -UseBasicParsing -Uri http://localhost:8081/api/v1/health/dependencies
+docker compose logs backend
+```
+
+Endpoints disponibles:
+
+- `GET http://localhost:8081/api/v1/health`: estado basico del servicio.
+- `GET http://localhost:8081/api/v1/health/dependencies`: valida conexion interna a PostgreSQL y Redis.
+
+El backend no ejecuta migraciones ni crea tablas. Las migraciones y seeds siguen siendo manuales desde `database/scripts/`.
 
 ## Inicializacion de base de datos local
 
@@ -198,7 +216,7 @@ Docker Compose carga variables desde estos archivos locales:
 Variables clave por capa:
 
 - Database: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`.
-- Backend: `APP_NAME`, `APP_ENV`, `APP_PORT`, `API_PREFIX`, `APP_PUBLIC_URL`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`.
+- Backend: `APP_NAME`, `APP_ENV`, `APP_PORT`, `API_PREFIX`, `APP_PUBLIC_URL`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `PASSWORD_HASH_ALGO`, `BCRYPT_COST`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `COOKIE_SECURE`, `COOKIE_SAME_SITE`, `LOG_LEVEL`.
 - Frontend: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 
 No se deben commitear archivos `.env` reales ni secretos. El backend usa `postgres` y `redis` como hosts internos de Docker en `DATABASE_URL` y `REDIS_URL`; `DATABASE_URL` debe mantenerse apuntando a `postgres:5432` dentro de la red interna.
