@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, User, LogOut, Shield, Trophy, FileText } from "lucide-react";
+import { LayoutDashboard, User, LogOut, Shield, Trophy, FileText, BarChart3 } from "lucide-react";
 
 export function UserNav() {
   const { user, logout } = useAuth();
@@ -57,6 +57,10 @@ export function UserNav() {
         <DropdownMenuItem onClick={() => router.push("/predictions")}>
           <FileText className="mr-2 h-4 w-4" />
           Mis predicciones
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/stats")}>
+          <BarChart3 className="mr-2 h-4 w-4" />
+          Mis estadísticas
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User className="mr-2 h-4 w-4" />

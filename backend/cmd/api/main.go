@@ -37,6 +37,10 @@ func main() {
 	}
 	defer db.Close()
 
+	if err := database.RunMigrations(ctx, db, "migrations"); err != nil {
+		log.Printf("warning: migration error: %v", err)
+	}
+
 	redisClient, err := appredis.Connect(ctx, cfg.RedisURL)
 	if err != nil {
 		log.Fatalf("redis connection error: %v", err)

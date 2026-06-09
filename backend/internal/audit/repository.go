@@ -20,6 +20,9 @@ const (
 
 	ActionPredictionCreated = "PREDICTION_CREATED"
 	ActionPredictionUpdated = "PREDICTION_UPDATED"
+
+	ActionMatchResultUpdated = "MATCH_RESULT_UPDATED"
+	ActionScoreCalculated    = "SCORE_CALCULATED"
 )
 
 type Repository interface {

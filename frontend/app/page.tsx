@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppLayout } from "@/shared/components/AppLayout";
 import { matchService } from "@/features/matches/services/match.service";
+import { leaderboardService } from "@/features/leaderboard/services/leaderboard.service";
 import type { MatchResponse } from "@/features/matches/types/match.types";
+import type { LeaderboardEntry } from "@/features/leaderboard/types/leaderboard.types";
 
 function HeroSection() {
   return (
@@ -173,19 +175,78 @@ function PreviewSection() {
 }
 
 function RankingPreview() {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    leaderboardService
+      .getGlobalLeaderboard(5)
+      .then((data) => setEntries(data.entries))
+      .catch(() => setEntries([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <section className="relative py-24">
       <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-center text-3xl font-bold text-foreground">Ranking general</h2>
-        <p className="mt-2 text-center text-muted-foreground">Los mejores predictors de ApuesTec</p>
-        <div className="mt-10 rounded-xl border border-border bg-surface p-8 text-center">
-          <p className="text-lg text-muted-foreground">
-            El ranking estará disponible cuando comience la temporada de predicciones.
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Regístrate y prepárate para competir.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Ranking general</h2>
+            <p className="mt-2 text-muted-foreground">Los mejores predictors de ApuesTec</p>
+          </div>
+          <Link
+            href="/leaderboard"
+            className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary hover:text-black"
+          >
+            Ver ranking
+          </Link>
         </div>
+        <div className="mt-10">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : entries.length === 0 ? (
+            <div className="rounded-xl border border-border bg-surface p-8 text-center">
+              <p className="text-lg text-muted-foreground">
+                El ranking aparecerá cuando los partidos finalicen y se calculen las puntuaciones.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Regístrate y prepárate para competir.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {entries.map((entry) => (
+                <div
+                  key={entry.userId}
+                  className="flex items-center justify-between rounded-xl border border-border bg-surface px-6 py-4 transition-all hover:border-primary/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-lg font-bold text-muted-foreground">
+                      {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : entry.rank === 3 ? "🥉" : `#${entry.rank}`}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">{entry.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{entry.predictionsCount} predicciones</p>
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">{entry.totalPoints}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {!loading && entries.length > 0 && (
+          <div className="mt-6 text-center">
+            <Link
+              href="/leaderboard"
+              className="text-sm text-primary hover:underline"
+            >
+              Ver ranking completo →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

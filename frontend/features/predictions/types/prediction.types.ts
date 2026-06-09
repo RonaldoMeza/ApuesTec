@@ -6,6 +6,12 @@ export interface PredictionResponse {
   points: number;
   isLocked: boolean;
   canEdit: boolean;
+  isExactScore: boolean;
+  isWinnerCorrect: boolean;
+  isGoalDifferenceCorrect: boolean;
+  basePoints: number;
+  earlyBonusPoints: number;
+  streakBonusPoints: number;
   createdAt: string;
   updatedAt: string;
 }

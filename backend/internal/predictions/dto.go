@@ -20,28 +20,40 @@ type CreatePredictionRequest struct {
 }
 
 type PredictionResponse struct {
-	ID                 string `json:"id"`
-	MatchID            string `json:"matchId"`
-	HomeScorePredicted int    `json:"homeScorePredicted"`
-	AwayScorePredicted int    `json:"awayScorePredicted"`
-	Points             int    `json:"points"`
-	IsLocked           bool   `json:"isLocked"`
-	CanEdit            bool   `json:"canEdit"`
-	CreatedAt          string `json:"createdAt"`
-	UpdatedAt          string `json:"updatedAt"`
+	ID                       string `json:"id"`
+	MatchID                  string `json:"matchId"`
+	HomeScorePredicted       int    `json:"homeScorePredicted"`
+	AwayScorePredicted       int    `json:"awayScorePredicted"`
+	Points                   int    `json:"points"`
+	IsLocked                 bool   `json:"isLocked"`
+	CanEdit                  bool   `json:"canEdit"`
+	IsExactScore             bool   `json:"isExactScore"`
+	IsWinnerCorrect          bool   `json:"isWinnerCorrect"`
+	IsGoalDifferenceCorrect  bool   `json:"isGoalDifferenceCorrect"`
+	BasePoints               int    `json:"basePoints"`
+	EarlyBonusPoints         int    `json:"earlyBonusPoints"`
+	StreakBonusPoints        int    `json:"streakBonusPoints"`
+	CreatedAt                string `json:"createdAt"`
+	UpdatedAt                string `json:"updatedAt"`
 }
 
 func toPredictionResponse(p *Prediction, canEdit bool) PredictionResponse {
 	return PredictionResponse{
-		ID:                 p.ID,
-		MatchID:            p.MatchID,
-		HomeScorePredicted: p.PredictedHomeScore,
-		AwayScorePredicted: p.PredictedAwayScore,
-		Points:             p.TotalPoints,
-		IsLocked:           p.IsLocked(),
-		CanEdit:            canEdit,
-		CreatedAt:          p.CreatedAt.Format(timeFormat),
-		UpdatedAt:          p.UpdatedAt.Format(timeFormat),
+		ID:                      p.ID,
+		MatchID:                 p.MatchID,
+		HomeScorePredicted:      p.PredictedHomeScore,
+		AwayScorePredicted:      p.PredictedAwayScore,
+		Points:                  p.TotalPoints,
+		IsLocked:                p.IsLocked(),
+		CanEdit:                 canEdit,
+		IsExactScore:            p.IsExactScore,
+		IsWinnerCorrect:         p.IsWinnerCorrect,
+		IsGoalDifferenceCorrect: p.IsGoalDifferenceCorrect,
+		BasePoints:              p.BasePoints,
+		EarlyBonusPoints:        p.EarlyBonusPoints,
+		StreakBonusPoints:       p.StreakBonusPoints,
+		CreatedAt:               p.CreatedAt.Format(timeFormat),
+		UpdatedAt:               p.UpdatedAt.Format(timeFormat),
 	}
 }
 

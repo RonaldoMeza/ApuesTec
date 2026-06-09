@@ -11,6 +11,16 @@ type TeamRepository interface {
 	FindByID(ctx context.Context, id string) (*TeamInfo, error)
 }
 
+type ScoringFunc func(ctx context.Context, match MatchInfo) error
+
+type MatchInfo struct {
+	ID        string
+	HomeScore int
+	AwayScore int
+	Status    string
+	StartsAt  time.Time
+}
+
 type Service interface {
 	Create(ctx context.Context, req CreateMatchRequest) (*MatchResponse, error)
 	List(ctx context.Context) ([]MatchResponse, error)
@@ -20,15 +30,21 @@ type Service interface {
 	Update(ctx context.Context, id string, req UpdateMatchRequest) (*MatchResponse, error)
 	UpdateStatus(ctx context.Context, id string, req UpdateStatusRequest) (*MatchResponse, error)
 	UpdateResult(ctx context.Context, id string, req UpdateResultRequest) (*MatchResponse, error)
+	RecalculateScore(ctx context.Context, id string) (*MatchResponse, error)
 }
 
 type service struct {
 	repo       Repository
 	teamRepo   TeamRepository
+	scoringFn  ScoringFunc
 }
 
 func NewService(repo Repository, teamRepo TeamRepository) Service {
 	return &service{repo: repo, teamRepo: teamRepo}
+}
+
+func NewServiceWithScoring(repo Repository, teamRepo TeamRepository, scoringFn ScoringFunc) Service {
+	return &service{repo: repo, teamRepo: teamRepo, scoringFn: scoringFn}
 }
 
 func (s *service) enrichMatch(ctx context.Context, m *Match) *MatchResponse {
@@ -166,6 +182,49 @@ func (s *service) UpdateResult(ctx context.Context, id string, req UpdateResultR
 	match, err := s.repo.UpdateResult(ctx, id, req.HomeScore, req.AwayScore)
 	if err != nil {
 		return nil, &ServiceError{Status: http.StatusNotFound, Code: "MATCH_NOT_FOUND", Message: ErrMatchNotFound.Error()}
+	}
+
+	enriched := s.enrichMatch(ctx, match)
+
+	if s.scoringFn != nil && match.Status == StatusFinished {
+		scoringMatch := MatchInfo{
+			ID:        match.ID,
+			HomeScore: req.HomeScore,
+			AwayScore: req.AwayScore,
+			Status:    match.Status,
+			StartsAt:  match.StartsAt,
+		}
+		_ = s.scoringFn(ctx, scoringMatch)
+	}
+
+	return enriched, nil
+}
+
+func (s *service) RecalculateScore(ctx context.Context, id string) (*MatchResponse, error) {
+	match, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, &ServiceError{Status: http.StatusNotFound, Code: "MATCH_NOT_FOUND", Message: ErrMatchNotFound.Error()}
+	}
+
+	if match.Status != StatusFinished {
+		return nil, &ServiceError{Status: http.StatusBadRequest, Code: "MATCH_NOT_FINISHED", Message: ErrMatchNotFinished.Error()}
+	}
+
+	if match.HomeScore == nil || match.AwayScore == nil {
+		return nil, &ServiceError{Status: http.StatusBadRequest, Code: "SCORE_NOT_SET", Message: ErrScoreNotSet.Error()}
+	}
+
+	if s.scoringFn != nil {
+		scoringMatch := MatchInfo{
+			ID:        match.ID,
+			HomeScore: *match.HomeScore,
+			AwayScore: *match.AwayScore,
+			Status:    match.Status,
+			StartsAt:  match.StartsAt,
+		}
+		if err := s.scoringFn(ctx, scoringMatch); err != nil {
+			return nil, &ServiceError{Status: http.StatusInternalServerError, Code: "SCORE_CALCULATION_ERROR", Message: "score calculation failed: " + err.Error()}
+		}
 	}
 
 	return s.enrichMatch(ctx, match), nil

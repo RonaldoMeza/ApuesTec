@@ -114,7 +114,18 @@ func (h *Handler) UpdateResult(c *gin.Context) {
 		handleServiceError(c, err)
 		return
 	}
-	response.OK(c, match, "match result updated successfully")
+	response.OK(c, match, "Resultado registrado y puntuaciones calculadas correctamente")
+}
+
+func (h *Handler) RecalculateScore(c *gin.Context) {
+	id := c.Param("id")
+
+	match, err := h.service.RecalculateScore(c.Request.Context(), id)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	response.OK(c, match, "Puntuacion recalculada correctamente")
 }
 
 func handleServiceError(c *gin.Context, err error) {

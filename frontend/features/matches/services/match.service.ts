@@ -34,4 +34,8 @@ export const matchService = {
   updateResult(id: string, data: UpdateResultRequest): Promise<MatchResponse> {
     return apiRequest<MatchResponse>(`/admin/matches/${id}/result`, { method: "PATCH", body: data });
   },
+
+  recalculateScore(id: string): Promise<MatchResponse> {
+    return apiRequest<MatchResponse>(`/admin/matches/${id}/recalculate-score`, { method: "POST" });
+  },
 };

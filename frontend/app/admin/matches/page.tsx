@@ -9,6 +9,7 @@ import { MatchForm } from "@/features/admin/components/MatchForm";
 import { MatchResultForm } from "@/features/admin/components/MatchResultForm";
 import { MatchStatusBadge } from "@/features/matches/components/MatchStatusBadge";
 import { matchService } from "@/features/matches/services/match.service";
+import { toast } from "sonner";
 import type { MatchResponse } from "@/features/matches/types/match.types";
 import Link from "next/link";
 
@@ -25,6 +26,7 @@ function AdminMatchesContent() {
   const [matches, setMatches] = useState<MatchResponse[]>([]);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [selectedResultMatch, setSelectedResultMatch] = useState<MatchResponse | null>(null);
+  const [recalculating, setRecalculating] = useState<string | null>(null);
 
   useEffect(() => {
     loadMatches();
@@ -44,6 +46,20 @@ function AdminMatchesContent() {
 
   function handleStatusChange(matchId: string, newStatus: string) {
     matchService.updateStatus(matchId, { status: newStatus }).then(() => loadMatches());
+  }
+
+  async function handleRecalculate(matchId: string) {
+    setRecalculating(matchId);
+    try {
+      await matchService.recalculateScore(matchId);
+      toast.success("Puntuación recalculada correctamente");
+      loadMatches();
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      toast.error(apiErr?.message || "Error al recalcular puntuación");
+    } finally {
+      setRecalculating(null);
+    }
   }
 
   if (isLoading || !user) {
@@ -114,8 +130,24 @@ function AdminMatchesContent() {
                       </div>
                     )}
                     {match.status === "FINISHED" && match.homeScore != null && match.awayScore != null && (
-                      <p className="mt-2 text-sm font-bold text-primary">
-                        {match.homeScore} - {match.awayScore}
+                      <div className="mt-3 space-y-2">
+                        <p className="text-sm font-bold text-primary">
+                          {match.homeScore} - {match.awayScore}
+                        </p>
+                        <button
+                          onClick={() => handleRecalculate(match.id)}
+                          disabled={recalculating === match.id}
+                          className="rounded-lg border border-blue-500/30 px-3 py-1 text-xs text-blue-400 transition-all hover:bg-blue-500/10 disabled:opacity-50"
+                        >
+                          {recalculating === match.id
+                            ? "Recalculando..."
+                            : "Recalcular puntuación"}
+                        </button>
+                      </div>
+                    )}
+                    {match.status === "CANCELLED" && (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Partido cancelado. No otorga puntos.
                       </p>
                     )}
                   </div>
@@ -134,6 +166,7 @@ function AdminMatchesContent() {
                 onSuccess={() => {
                   setSelectedResultMatch(null);
                   loadMatches();
+                  toast.success("Resultado registrado y puntuaciones calculadas correctamente");
                 }}
               />
               <button

@@ -9,8 +9,11 @@ import { AppLayout } from "@/shared/components/AppLayout";
 import { matchService } from "@/features/matches/services/match.service";
 import { MatchStatusBadge } from "@/features/matches/components/MatchStatusBadge";
 import { predictionService } from "@/features/predictions/services/prediction.service";
+import { leaderboardService } from "@/features/leaderboard/services/leaderboard.service";
+import { ScoreEventList } from "@/features/leaderboard/components/ScoreEventList";
 import type { MatchResponse } from "@/features/matches/types/match.types";
 import type { PredictionResponse } from "@/features/predictions/types/prediction.types";
+import type { UserStats, ScoreEvent, LeaderboardEntry } from "@/features/leaderboard/types/leaderboard.types";
 
 export default function DashboardPage() {
   return (
@@ -26,6 +29,10 @@ function DashboardContent() {
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [predictions, setPredictions] = useState<PredictionResponse[]>([]);
   const [loadingPredictions, setLoadingPredictions] = useState(true);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [scoreEvents, setScoreEvents] = useState<ScoreEvent[]>([]);
+  const [leaderboardPreview, setLeaderboardPreview] = useState<LeaderboardEntry[]>([]);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
 
   useEffect(() => {
     matchService
@@ -43,17 +50,43 @@ function DashboardContent() {
       .finally(() => setLoadingPredictions(false));
   }, []);
 
+  useEffect(() => {
+    leaderboardService
+      .getMyStats()
+      .then(setStats)
+      .catch(() => setStats(null));
+  }, []);
+
+  useEffect(() => {
+    leaderboardService
+      .getMyScoreEvents()
+      .then(setScoreEvents)
+      .catch(() => setScoreEvents([]));
+  }, []);
+
+  useEffect(() => {
+    leaderboardService
+      .getGlobalLeaderboard(5)
+      .then((data) => setLeaderboardPreview(data.entries))
+      .catch(() => setLeaderboardPreview([]))
+      .finally(() => setLoadingLeaderboard(false));
+  }, []);
+
   if (isLoading || !user) {
     return <LoadingScreen message="Cargando dashboard..." />;
   }
 
   const isAdmin = user.roles.some((r) => r === "ADMIN" || r === "SUPER_ADMIN");
 
+  const totalPoints = stats?.totalPoints ?? 0;
+  const globalRank = stats?.globalRank ?? 0;
+  const exactScores = stats?.exactScoresCount ?? 0;
+
   const summaryCards = [
-    { label: "Puntos", value: "—", desc: "Próximamente" },
+    { label: "Puntos", value: totalPoints.toString(), desc: "Totales" },
     { label: "Predicciones", value: predictions.length.toString(), desc: "Registradas" },
-    { label: "Ranking", value: "—", desc: "Próxima fase" },
-    { label: "Partidos", value: upcomingMatches.length.toString(), desc: "Próximos" },
+    { label: "Ranking", value: globalRank > 0 ? `#${globalRank}` : "—", desc: "Global" },
+    { label: "Exactos", value: exactScores.toString(), desc: "Marcadores exactos" },
   ];
 
   return (
@@ -116,14 +149,6 @@ function DashboardContent() {
                 ))}
               </div>
             )}
-            {isAdmin && (
-              <Link
-                href="/admin"
-                className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-              >
-                Panel de administración →
-              </Link>
-            )}
           </div>
 
           <div className="rounded-xl border border-border bg-surface p-6">
@@ -151,16 +176,23 @@ function DashboardContent() {
               </div>
             ) : (
               <div className="space-y-3">
-                {predictions.slice(0, 3).map((p) => (
+                {predictions.slice(0, 5).map((p) => (
                   <div key={p.id}>
                     <Link href={`/matches/${p.matchId}`}>
                       <div className="flex items-center justify-between rounded-lg bg-surface-muted px-4 py-3 transition-all hover:bg-surface-hover">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <span className="text-lg font-bold text-primary">{p.homeScorePredicted}</span>
                           <span className="text-xs text-muted-foreground">-</span>
                           <span className="text-lg font-bold text-primary">{p.awayScorePredicted}</span>
+                          {p.points > 0 && (
+                            <span className="ml-2 text-xs font-medium text-emerald-400">
+                              +{p.points}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-xs text-muted-foreground">Ver detalle →</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.points > 0 ? `${p.points} pts` : "Pendiente"}
+                        </span>
                       </div>
                     </Link>
                   </div>
@@ -169,6 +201,77 @@ function DashboardContent() {
             )}
           </div>
         </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-border bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Ranking global</h2>
+              <Link href="/leaderboard" className="text-xs text-primary hover:underline">
+                Ver completo
+              </Link>
+            </div>
+            {loadingLeaderboard ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : leaderboardPreview.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                El ranking aparecerá cuando los partidos finalicen.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {leaderboardPreview.map((entry) => (
+                  <div
+                    key={entry.userId}
+                    className={`flex items-center justify-between rounded-lg px-4 py-2 ${
+                      entry.userId === user.id
+                        ? "bg-primary/5 ring-1 ring-primary/20"
+                        : "bg-surface-muted"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-muted-foreground">
+                        #{entry.rank}
+                      </span>
+                      <span className="text-sm text-foreground">
+                        {entry.fullName}
+                        {entry.userId === user.id && (
+                          <span className="ml-1 text-xs text-primary">(tú)</span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-primary">
+                      {entry.totalPoints}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Eventos de puntuación recientes
+              </h2>
+              <Link href="/stats" className="text-xs text-primary hover:underline">
+                Ver todas
+              </Link>
+            </div>
+            <ScoreEventList events={scoreEvents.slice(0, 5)} />
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="mt-6">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              Panel de administración →
+            </Link>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

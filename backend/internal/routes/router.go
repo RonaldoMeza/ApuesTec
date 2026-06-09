@@ -13,13 +13,16 @@ import (
 	appauth "github.com/RonaldoMeza/ApuesTec/backend/internal/auth"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/config"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/database"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/leaderboard"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/matches"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/middleware"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/predictions"
 	appredis "github.com/RonaldoMeza/ApuesTec/backend/internal/redis"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/response"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/roles"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/scoring"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/teams"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/userstats"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/users"
 )
 
@@ -44,7 +47,22 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 
 	teamInfoRepo := matches.NewTeamInfoRepository(db)
 	matchRepo := matches.NewRepository(db)
-	matchSvc := matches.NewService(matchRepo, teamInfoRepo)
+	scoringRepo := scoring.NewRepository(db)
+	scoringSvc := scoring.NewService(scoringRepo)
+
+	scoringFn := func(ctx context.Context, match matches.MatchInfo) error {
+		sm := scoring.MatchInfo{
+			ID:        match.ID,
+			HomeScore: match.HomeScore,
+			AwayScore: match.AwayScore,
+			Status:    match.Status,
+			StartsAt:  match.StartsAt,
+		}
+		_, err := scoringSvc.CalculateAndSave(ctx, sm)
+		return err
+	}
+
+	matchSvc := matches.NewServiceWithScoring(matchRepo, teamInfoRepo, scoringFn)
 	matchHandler := matches.NewHandler(matchSvc)
 
 	predictionRepo := predictions.NewRepository(db)
@@ -53,6 +71,14 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 
 	authSvc := appauth.NewService(userRepo, authRepo, roleRepo, auditRepo, cfg)
 	authHandler := appauth.NewHandler(authSvc)
+
+	leaderboardRepo := leaderboard.NewRepository(db)
+	leaderboardSvc := leaderboard.NewService(leaderboardRepo)
+	leaderboardHandler := leaderboard.NewHandler(leaderboardSvc)
+
+	userStatsRepo := userstats.NewRepository(db)
+	userStatsSvc := userstats.NewService(userStatsRepo, leaderboardRepo)
+	userStatsHandler := userstats.NewHandler(userStatsSvc)
 
 	api := router.Group(cfg.APIPrefix)
 	{
@@ -77,6 +103,8 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 		api.GET("/teams", teamHandler.List)
 		api.GET("/teams/:id", teamHandler.GetByID)
 
+		api.GET("/leaderboard/global", leaderboardHandler.GetGlobalLeaderboard)
+
 		api.GET("/matches/upcoming", matchHandler.ListUpcoming)
 		api.GET("/matches/finished", matchHandler.ListFinished)
 		api.GET("/matches", matchHandler.List)
@@ -88,6 +116,9 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 		api.POST("/matches/:id/prediction", userAuth, predictionHandler.UpsertPrediction)
 		api.DELETE("/matches/:id/prediction", userAuth, predictionHandler.DeletePrediction)
 
+		api.GET("/users/me/stats", userAuth, userStatsHandler.GetMyStats)
+		api.GET("/users/me/score-events", userAuth, userStatsHandler.ListMyScoreEvents)
+
 		admin := api.Group("/admin", adminAuth, adminRole)
 		{
 			admin.POST("/teams", teamHandler.Create)
@@ -98,6 +129,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 			admin.PUT("/matches/:id", matchHandler.Update)
 			admin.PATCH("/matches/:id/status", matchHandler.UpdateStatus)
 			admin.PATCH("/matches/:id/result", matchHandler.UpdateResult)
+			admin.POST("/matches/:id/recalculate-score", matchHandler.RecalculateScore)
 		}
 	}
 

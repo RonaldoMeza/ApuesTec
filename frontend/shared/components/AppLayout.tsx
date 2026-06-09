@@ -13,6 +13,7 @@ interface AppLayoutProps {
 const navLinks = [
   { href: "/", label: "Inicio" },
   { href: "/matches", label: "Partidos" },
+  { href: "/leaderboard", label: "Ranking" },
 ];
 
 const authNavLinks = [
