@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, User, LogOut } from "lucide-react";
+import { LayoutDashboard, User, LogOut, Shield, Trophy } from "lucide-react";
 
 export function UserNav() {
   const { user, logout } = useAuth();
@@ -50,10 +50,23 @@ export function UserNav() {
           <LayoutDashboard className="mr-2 h-4 w-4" />
           Dashboard
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/matches")}>
+          <Trophy className="mr-2 h-4 w-4" />
+          Partidos
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User className="mr-2 h-4 w-4" />
           Perfil
         </DropdownMenuItem>
+        {user.roles.some((r) => r === "ADMIN" || r === "SUPER_ADMIN") && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push("/admin")}>
+              <Shield className="mr-2 h-4 w-4" />
+              Admin
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout} variant="destructive">
           <LogOut className="mr-2 h-4 w-4" />

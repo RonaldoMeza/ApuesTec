@@ -13,10 +13,12 @@ import (
 	appauth "github.com/RonaldoMeza/ApuesTec/backend/internal/auth"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/config"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/database"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/matches"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/middleware"
 	appredis "github.com/RonaldoMeza/ApuesTec/backend/internal/redis"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/response"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/roles"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/teams"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/users"
 )
 
@@ -34,6 +36,15 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 	authRepo := appauth.NewRepository(db)
 	roleRepo := roles.NewRepository(db)
 	auditRepo := audit.NewRepository(db)
+
+	teamRepo := teams.NewRepository(db)
+	teamSvc := teams.NewService(teamRepo)
+	teamHandler := teams.NewHandler(teamSvc)
+
+	teamInfoRepo := matches.NewTeamInfoRepository(db)
+	matchRepo := matches.NewRepository(db)
+	matchSvc := matches.NewService(matchRepo, teamInfoRepo)
+	matchHandler := matches.NewHandler(matchSvc)
 
 	authSvc := appauth.NewService(userRepo, authRepo, roleRepo, auditRepo, cfg)
 	authHandler := appauth.NewHandler(authSvc)
@@ -53,6 +64,29 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 
 			auth.GET("/me", appauth.AuthMiddleware(cfg.JWTAccessSecret), authHandler.Me)
 			auth.POST("/change-password", appauth.AuthMiddleware(cfg.JWTAccessSecret), authHandler.ChangePassword)
+		}
+
+		adminAuth := appauth.AuthMiddleware(cfg.JWTAccessSecret)
+		adminRole := appauth.RequireRole("ADMIN", "SUPER_ADMIN")
+
+		api.GET("/teams", teamHandler.List)
+		api.GET("/teams/:id", teamHandler.GetByID)
+
+		api.GET("/matches/upcoming", matchHandler.ListUpcoming)
+		api.GET("/matches/finished", matchHandler.ListFinished)
+		api.GET("/matches", matchHandler.List)
+		api.GET("/matches/:id", matchHandler.GetByID)
+
+		admin := api.Group("/admin", adminAuth, adminRole)
+		{
+			admin.POST("/teams", teamHandler.Create)
+			admin.PUT("/teams/:id", teamHandler.Update)
+			admin.DELETE("/teams/:id", teamHandler.Delete)
+
+			admin.POST("/matches", matchHandler.Create)
+			admin.PUT("/matches/:id", matchHandler.Update)
+			admin.PATCH("/matches/:id/status", matchHandler.UpdateStatus)
+			admin.PATCH("/matches/:id/result", matchHandler.UpdateResult)
 		}
 	}
 

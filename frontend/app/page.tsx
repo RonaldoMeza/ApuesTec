@@ -1,7 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { AppLayout } from "@/shared/components/AppLayout";
+import { matchService } from "@/features/matches/services/match.service";
+import type { MatchResponse } from "@/features/matches/types/match.types";
 
 function HeroSection() {
   return (
@@ -92,27 +95,78 @@ function ScoringRules() {
 }
 
 function PreviewSection() {
-  const previewMatches = [
-    { home: "Argentina", away: "Brasil", date: "Próximamente" },
-    { home: "España", away: "Francia", date: "Próximamente" },
-    { home: "Alemania", away: "Inglaterra", date: "Próximamente" },
-  ];
+  const [matches, setMatches] = useState<MatchResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    matchService
+      .listUpcoming()
+      .then(setMatches)
+      .catch(() => setMatches([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <section className="relative py-24">
       <div className="mx-auto max-w-6xl px-4">
-        <h2 className="text-center text-3xl font-bold text-foreground">Próximos partidos</h2>
-        <p className="mt-2 text-center text-muted-foreground">Prepárate para hacer tus predicciones</p>
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {previewMatches.map((match, i) => (
-            <div key={i} className="rounded-xl border border-border bg-surface p-6 text-center transition-all hover:border-primary/30">
-              <p className="text-xs text-muted-foreground">{match.date}</p>
-              <p className="mt-2 text-lg font-semibold text-foreground">{match.home}</p>
-              <p className="text-sm text-muted-foreground">vs</p>
-              <p className="text-lg font-semibold text-foreground">{match.away}</p>
-            </div>
-          ))}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold text-foreground">Próximos partidos</h2>
+            <p className="mt-2 text-muted-foreground">Prepárate para hacer tus predicciones</p>
+          </div>
+          <Link
+            href="/matches"
+            className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary hover:text-black"
+          >
+            Ver partidos
+          </Link>
         </div>
+        <div className="mt-10 grid gap-4 md:grid-cols-3">
+          {loading ? (
+            <div className="col-span-full flex items-center justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : matches.length === 0 ? (
+            <div className="col-span-full rounded-xl border border-border bg-surface p-8 text-center">
+              <p className="text-lg text-muted-foreground">
+                No hay partidos próximos. Vuelve más tarde.
+              </p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Los administradores estarán cargando los partidos del Mundial pronto.
+              </p>
+            </div>
+          ) : (
+            matches.slice(0, 3).map((match) => (
+              <Link key={match.id} href={`/matches/${match.id}`}>
+                <div className="rounded-xl border border-border bg-surface p-6 text-center transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(match.startsAt).toLocaleDateString("es-PE", {
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-foreground">
+                    {match.homeTeam?.name || "?"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">vs</p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {match.awayTeam?.name || "?"}
+                  </p>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+        {!loading && matches.length > 0 && (
+          <div className="mt-6 text-center">
+            <Link
+              href="/matches"
+              className="text-sm text-primary hover:underline"
+            >
+              Ver todos los partidos →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );

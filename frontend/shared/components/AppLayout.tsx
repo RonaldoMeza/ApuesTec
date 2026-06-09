@@ -12,6 +12,7 @@ interface AppLayoutProps {
 
 const navLinks = [
   { href: "/", label: "Inicio" },
+  { href: "/matches", label: "Partidos" },
 ];
 
 export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {

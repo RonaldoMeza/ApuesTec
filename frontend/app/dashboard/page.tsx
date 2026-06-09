@@ -1,9 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { ProtectedRoute } from "@/features/auth/components/ProtectedRoute";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { LoadingScreen } from "@/shared/components/LoadingScreen";
 import { AppLayout } from "@/shared/components/AppLayout";
+import { matchService } from "@/features/matches/services/match.service";
+import { MatchStatusBadge } from "@/features/matches/components/MatchStatusBadge";
+import type { MatchResponse } from "@/features/matches/types/match.types";
 
 export default function DashboardPage() {
   return (
@@ -15,16 +20,28 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { user, isLoading } = useAuth();
+  const [upcomingMatches, setUpcomingMatches] = useState<MatchResponse[]>([]);
+  const [loadingMatches, setLoadingMatches] = useState(true);
+
+  useEffect(() => {
+    matchService
+      .listUpcoming()
+      .then(setUpcomingMatches)
+      .catch(() => setUpcomingMatches([]))
+      .finally(() => setLoadingMatches(false));
+  }, []);
 
   if (isLoading || !user) {
     return <LoadingScreen message="Cargando dashboard..." />;
   }
 
+  const isAdmin = user.roles.some((r) => r === "ADMIN" || r === "SUPER_ADMIN");
+
   const summaryCards = [
     { label: "Puntos", value: "—", desc: "Próximamente" },
-    { label: "Predicciones", value: "—", desc: "Próximamente" },
-    { label: "Salas", value: "—", desc: "Próximamente" },
-    { label: "Ranking", value: "—", desc: "Próximamente" },
+    { label: "Predicciones", value: "—", desc: "Próxima fase" },
+    { label: "Ranking", value: "—", desc: "Próxima fase" },
+    { label: "Partidos", value: upcomingMatches.length.toString(), desc: "Próximos" },
   ];
 
   return (
@@ -51,45 +68,75 @@ function DashboardContent() {
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-border bg-surface p-6">
-            <h2 className="mb-1 text-lg font-semibold text-foreground">Información de la cuenta</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Datos asociados a tu perfil</p>
-            <dl className="space-y-3 text-sm">
-              <div className="flex justify-between rounded-lg bg-surface-muted px-4 py-3">
-                <dt className="text-muted-foreground">Nombre</dt>
-                <dd className="font-medium text-foreground">{user.fullName}</dd>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Próximos partidos</h2>
+              <Link href="/matches" className="text-xs text-primary hover:underline">
+                Ver todos
+              </Link>
+            </div>
+            {loadingMatches ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
-              <div className="flex justify-between rounded-lg bg-surface-muted px-4 py-3">
-                <dt className="text-muted-foreground">Email</dt>
-                <dd className="font-medium text-foreground">{user.email}</dd>
+            ) : upcomingMatches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No hay partidos próximos.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingMatches.slice(0, 5).map((match) => (
+                  <Link key={match.id} href={`/matches/${match.id}`}>
+                    <div className="flex items-center justify-between rounded-lg bg-surface-muted px-4 py-3 transition-all hover:bg-surface-hover">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {match.homeTeam?.name || "?"} vs {match.awayTeam?.name || "?"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(match.startsAt).toLocaleDateString("es-PE", {
+                            day: "numeric",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <MatchStatusBadge status={match.status} />
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <div className="flex justify-between rounded-lg bg-surface-muted px-4 py-3">
-                <dt className="text-muted-foreground">Roles</dt>
-                <dd className="font-medium text-foreground">{user.roles.join(", ")}</dd>
-              </div>
-            </dl>
+            )}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                Panel de administración →
+              </Link>
+            )}
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-6">
-            <h2 className="mb-1 text-lg font-semibold text-foreground">Próximamente</h2>
-            <p className="mb-4 text-sm text-muted-foreground">Nuevas funcionalidades en desarrollo</p>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-center gap-3 rounded-lg bg-surface-muted px-4 py-3">
-                <span className="text-primary">🏟️</span>
-                <span className="text-muted-foreground">Salas privadas con amigos</span>
-              </li>
-              <li className="flex items-center gap-3 rounded-lg bg-surface-muted px-4 py-3">
-                <span className="text-primary">⚽</span>
-                <span className="text-muted-foreground">Predicciones de partidos</span>
-              </li>
-              <li className="flex items-center gap-3 rounded-lg bg-surface-muted px-4 py-3">
-                <span className="text-primary">🏆</span>
-                <span className="text-muted-foreground">Rankings y estadísticas</span>
-              </li>
-              <li className="flex items-center gap-3 rounded-lg bg-surface-muted px-4 py-3">
-                <span className="text-primary">🎮</span>
-                <span className="text-muted-foreground">Logros y gamificación</span>
-              </li>
-            </ul>
+          <div className="space-y-4">
+            <Link href="/matches">
+              <div className="rounded-xl border border-border bg-surface p-5 transition-all hover:border-primary/30">
+                <h2 className="text-lg font-semibold text-foreground">⚽ Ver partidos</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Explora todos los partidos del Mundial
+                </p>
+              </div>
+            </Link>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-lg font-semibold text-foreground">📊 Predicciones</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Las predicciones estarán disponibles en la próxima fase.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <h2 className="text-lg font-semibold text-foreground">🏆 Ranking</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                El ranking estará disponible en la próxima fase.
+              </p>
+            </div>
           </div>
         </div>
       </div>

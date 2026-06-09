@@ -1,29 +1,38 @@
-INSERT INTO teams (name, country_code, flag_url)
-VALUES
-    ('Argentina', 'ARG', NULL),
-    ('Brasil', 'BRA', NULL),
-    ('Francia', 'FRA', NULL),
-    ('Espana', 'ESP', NULL),
-    ('Mexico', 'MEX', NULL),
-    ('Estados Unidos', 'USA', NULL)
-ON CONFLICT (country_code) DO UPDATE
+﻿-- Seed: Equipos de ejemplo y partidos del Mundial
+-- Fase 7: Equipos y Partidos
+
+-- Equipos
+INSERT INTO teams (name, code, country, flag_url) VALUES
+    ('Perú', 'PER', 'Perú', NULL),
+    ('Argentina', 'ARG', 'Argentina', NULL),
+    ('Brasil', 'BRA', 'Brasil', NULL),
+    ('Francia', 'FRA', 'Francia', NULL),
+    ('Alemania', 'GER', 'Alemania', NULL),
+    ('España', 'ESP', 'España', NULL),
+    ('Inglaterra', 'ENG', 'Inglaterra', NULL),
+    ('Portugal', 'POR', 'Portugal', NULL),
+    ('México', 'MEX', 'México', NULL),
+    ('Japón', 'JPN', 'Japón', NULL)
+ON CONFLICT (code) DO UPDATE
 SET name = EXCLUDED.name,
+    country = EXCLUDED.country,
     flag_url = EXCLUDED.flag_url;
 
-INSERT INTO matches (home_team_id, away_team_id, match_date, status)
-SELECT home_team.id, away_team.id, fixture.match_date, 'SCHEDULED'
-FROM (
-    VALUES
-        ('ARG', 'MEX', TIMESTAMPTZ '2026-06-11 19:00:00+00'),
-        ('BRA', 'USA', TIMESTAMPTZ '2026-06-12 22:00:00+00'),
-        ('FRA', 'ESP', TIMESTAMPTZ '2026-06-13 20:00:00+00')
-) AS fixture(home_code, away_code, match_date)
-JOIN teams AS home_team ON home_team.country_code = fixture.home_code
-JOIN teams AS away_team ON away_team.country_code = fixture.away_code
+-- Partidos de ejemplo
+INSERT INTO matches (home_team_id, away_team_id, starts_at, status)
+SELECT home.id, away.id, fixture.starts_at, 'SCHEDULED'
+FROM (VALUES
+    ('ARG', 'BRA', NOW() + INTERVAL '3 days'),
+    ('ESP', 'FRA', NOW() + INTERVAL '5 days'),
+    ('GER', 'ENG', NOW() + INTERVAL '7 days'),
+    ('POR', 'PER', NOW() + INTERVAL '10 days'),
+    ('MEX', 'JPN', NOW() + INTERVAL '14 days')
+) AS fixture(home_code, away_code, starts_at)
+JOIN teams AS home ON home.code = fixture.home_code
+JOIN teams AS away ON away.code = fixture.away_code
 WHERE NOT EXISTS (
-    SELECT 1
-    FROM matches existing_match
-    WHERE existing_match.home_team_id = home_team.id
-      AND existing_match.away_team_id = away_team.id
-      AND existing_match.match_date = fixture.match_date
+    SELECT 1 FROM matches existing
+    WHERE existing.home_team_id = home.id
+      AND existing.away_team_id = away.id
+      AND existing.starts_at = fixture.starts_at
 );
