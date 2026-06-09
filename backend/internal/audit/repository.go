@@ -17,6 +17,9 @@ const (
 	ActionPasswordChanged   = "PASSWORD_CHANGED"
 	ActionGoogleAuthSuccess = "GOOGLE_AUTH_SUCCESS"
 	ActionGoogleAuthFailed  = "GOOGLE_AUTH_FAILED"
+
+	ActionPredictionCreated = "PREDICTION_CREATED"
+	ActionPredictionUpdated = "PREDICTION_UPDATED"
 )
 
 type Repository interface {

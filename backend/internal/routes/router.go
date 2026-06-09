@@ -15,6 +15,7 @@ import (
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/database"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/matches"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/middleware"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/predictions"
 	appredis "github.com/RonaldoMeza/ApuesTec/backend/internal/redis"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/response"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/roles"
@@ -46,6 +47,10 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 	matchSvc := matches.NewService(matchRepo, teamInfoRepo)
 	matchHandler := matches.NewHandler(matchSvc)
 
+	predictionRepo := predictions.NewRepository(db)
+	predictionSvc := predictions.NewService(predictionRepo, matchRepo, auditRepo)
+	predictionHandler := predictions.NewHandler(predictionSvc)
+
 	authSvc := appauth.NewService(userRepo, authRepo, roleRepo, auditRepo, cfg)
 	authHandler := appauth.NewHandler(authSvc)
 
@@ -76,6 +81,12 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 		api.GET("/matches/finished", matchHandler.ListFinished)
 		api.GET("/matches", matchHandler.List)
 		api.GET("/matches/:id", matchHandler.GetByID)
+
+		userAuth := appauth.AuthMiddleware(cfg.JWTAccessSecret)
+		api.GET("/predictions/me", userAuth, predictionHandler.ListMyPredictions)
+		api.GET("/matches/:id/prediction", userAuth, predictionHandler.GetMyPrediction)
+		api.POST("/matches/:id/prediction", userAuth, predictionHandler.UpsertPrediction)
+		api.DELETE("/matches/:id/prediction", userAuth, predictionHandler.DeletePrediction)
 
 		admin := api.Group("/admin", adminAuth, adminRole)
 		{

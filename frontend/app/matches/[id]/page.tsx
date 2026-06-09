@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AppLayout } from "@/shared/components/AppLayout";
 import { MatchStatusBadge } from "@/features/matches/components/MatchStatusBadge";
 import { matchService } from "@/features/matches/services/match.service";
+import { PredictionForm } from "@/features/predictions/components/PredictionForm";
 import type { MatchResponse } from "@/features/matches/types/match.types";
 
 export default function MatchDetailPage() {
@@ -137,13 +138,13 @@ export default function MatchDetailPage() {
               <p className="text-sm text-muted-foreground">{match.awayTeam?.country || ""}</p>
             </div>
           </div>
-
-          <div className="mt-8 rounded-lg border border-border/50 bg-surface-muted p-4 text-center">
-            <p className="text-sm italic text-muted-foreground">
-              Las predicciones estarán disponibles en una próxima fase.
-            </p>
-          </div>
         </div>
+
+        <PredictionForm
+          matchId={match.id}
+          matchStatus={match.status}
+          matchDate={matchDate}
+        />
       </div>
     </AppLayout>
   );

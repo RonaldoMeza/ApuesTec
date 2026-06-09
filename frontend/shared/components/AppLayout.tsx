@@ -15,6 +15,10 @@ const navLinks = [
   { href: "/matches", label: "Partidos" },
 ];
 
+const authNavLinks = [
+  { href: "/predictions", label: "Mis predicciones" },
+];
+
 export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {
   const { isAuthenticated } = useAuth();
 
@@ -36,6 +40,15 @@ export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {
             </Link>
             <nav className="flex items-center gap-6">
               {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              {isAuthenticated && authNavLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
