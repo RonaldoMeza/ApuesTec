@@ -11,9 +11,12 @@ import { MatchStatusBadge } from "@/features/matches/components/MatchStatusBadge
 import { predictionService } from "@/features/predictions/services/prediction.service";
 import { leaderboardService } from "@/features/leaderboard/services/leaderboard.service";
 import { ScoreEventList } from "@/features/leaderboard/components/ScoreEventList";
+import { roomService } from "@/features/rooms/services/room.service";
+import { RoomRoleBadge } from "@/features/rooms/components/RoomRoleBadge";
 import type { MatchResponse } from "@/features/matches/types/match.types";
 import type { PredictionResponse } from "@/features/predictions/types/prediction.types";
 import type { UserStats, ScoreEvent, LeaderboardEntry } from "@/features/leaderboard/types/leaderboard.types";
+import type { Room } from "@/features/rooms/types/room.types";
 
 export default function DashboardPage() {
   return (
@@ -33,6 +36,8 @@ function DashboardContent() {
   const [scoreEvents, setScoreEvents] = useState<ScoreEvent[]>([]);
   const [leaderboardPreview, setLeaderboardPreview] = useState<LeaderboardEntry[]>([]);
   const [loadingLeaderboard, setLoadingLeaderboard] = useState(true);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
 
   useEffect(() => {
     matchService
@@ -70,6 +75,14 @@ function DashboardContent() {
       .then((data) => setLeaderboardPreview(data.entries))
       .catch(() => setLeaderboardPreview([]))
       .finally(() => setLoadingLeaderboard(false));
+  }, []);
+
+  useEffect(() => {
+    roomService
+      .listMyRooms()
+      .then((data) => setRooms(data.rooms))
+      .catch(() => setRooms([]))
+      .finally(() => setLoadingRooms(false));
   }, []);
 
   if (isLoading || !user) {
@@ -259,6 +272,72 @@ function DashboardContent() {
               </Link>
             </div>
             <ScoreEventList events={scoreEvents.slice(0, 5)} />
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <div className="rounded-xl border border-border bg-surface p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Mis Salas</h2>
+              {rooms.length > 0 && (
+                <Link href="/rooms" className="text-xs text-primary hover:underline">
+                  Ver todas
+                </Link>
+              )}
+            </div>
+            {loadingRooms ? (
+              <div className="flex items-center justify-center py-6">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : rooms.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground mb-4">
+                  No perteneces a ninguna sala
+                </p>
+                <div className="flex flex-col items-center gap-3">
+                  <Link
+                    href="/rooms/create"
+                    className="inline-block rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
+                  >
+                    Crear sala
+                  </Link>
+                  <Link
+                    href="/rooms"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Buscar salas públicas
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {rooms.slice(0, 3).map((room) => (
+                    <Link key={room.id} href={`/rooms/${room.id}`}>
+                      <div className="rounded-lg bg-surface-muted px-4 py-3 transition-all hover:bg-surface-hover">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {room.name}
+                          </p>
+                          <RoomRoleBadge role={room.myRole} />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {room.memberCount} {room.memberCount === 1 ? "miembro" : "miembros"}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    href="/rooms"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Buscar salas públicas →
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

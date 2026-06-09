@@ -20,6 +20,9 @@ import (
 	appredis "github.com/RonaldoMeza/ApuesTec/backend/internal/redis"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/response"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/roles"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/roominvites"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/roommembers"
+	"github.com/RonaldoMeza/ApuesTec/backend/internal/rooms"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/scoring"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/teams"
 	"github.com/RonaldoMeza/ApuesTec/backend/internal/userstats"
@@ -49,6 +52,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 	matchRepo := matches.NewRepository(db)
 	scoringRepo := scoring.NewRepository(db)
 	scoringSvc := scoring.NewService(scoringRepo)
+	scoringHandler := scoring.NewHandler(scoringSvc)
 
 	scoringFn := func(ctx context.Context, match matches.MatchInfo) error {
 		sm := scoring.MatchInfo{
@@ -79,6 +83,18 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 	userStatsRepo := userstats.NewRepository(db)
 	userStatsSvc := userstats.NewService(userStatsRepo, leaderboardRepo)
 	userStatsHandler := userstats.NewHandler(userStatsSvc)
+
+	roomRepo := rooms.NewRepository(db)
+	roomSvc := rooms.NewService(roomRepo, roomRepo)
+	roomHandler := rooms.NewHandler(roomSvc)
+
+	roomMemberRepo := roommembers.NewRepository(db)
+	roomMemberSvc := roommembers.NewService(roomMemberRepo)
+	roomMemberHandler := roommembers.NewHandler(roomMemberSvc)
+
+	roomInviteRepo := roominvites.NewRepository(db)
+	roomInviteSvc := roominvites.NewService(roomInviteRepo, roomRepo, roomRepo)
+	roomInviteHandler := roominvites.NewHandler(roomInviteSvc)
 
 	api := router.Group(cfg.APIPrefix)
 	{
@@ -119,6 +135,22 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 		api.GET("/users/me/stats", userAuth, userStatsHandler.GetMyStats)
 		api.GET("/users/me/score-events", userAuth, userStatsHandler.ListMyScoreEvents)
 
+		api.GET("/rooms", userAuth, roomHandler.ListMyRooms)
+		api.POST("/rooms", userAuth, roomHandler.Create)
+		api.GET("/rooms/public", userAuth, roomHandler.SearchPublic)
+		api.GET("/rooms/:id", userAuth, roomHandler.GetByID)
+		api.PUT("/rooms/:id", userAuth, roomHandler.Update)
+		api.PATCH("/rooms/:id/close", userAuth, roomHandler.Close)
+		api.POST("/rooms/:id/join", userAuth, roomHandler.JoinPublic)
+		api.GET("/rooms/:id/members", userAuth, roomMemberHandler.ListMembers)
+		api.PATCH("/rooms/:id/members/:userId/role", userAuth, roomMemberHandler.ChangeRole)
+		api.DELETE("/rooms/:id/members/:userId", userAuth, roomMemberHandler.RemoveMember)
+		api.POST("/rooms/:id/leave", userAuth, roomMemberHandler.Leave)
+		api.POST("/rooms/:id/invites", userAuth, roomInviteHandler.CreateInvite)
+		api.GET("/rooms/:id/leaderboard", userAuth, roomHandler.GetLeaderboard)
+		api.GET("/invites/:code", roomInviteHandler.PreviewInvite)
+		api.POST("/invites/:code/join", userAuth, roomInviteHandler.JoinRoom)
+
 		admin := api.Group("/admin", adminAuth, adminRole)
 		{
 			admin.POST("/teams", teamHandler.Create)
@@ -130,6 +162,7 @@ func NewRouter(cfg *config.Config, db *pgxpool.Pool, redisClient *redis.Client) 
 			admin.PATCH("/matches/:id/status", matchHandler.UpdateStatus)
 			admin.PATCH("/matches/:id/result", matchHandler.UpdateResult)
 			admin.POST("/matches/:id/recalculate-score", matchHandler.RecalculateScore)
+			admin.POST("/rebuild-scores", scoringHandler.RebuildAllScores)
 		}
 	}
 

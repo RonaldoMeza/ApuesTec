@@ -41,6 +41,12 @@ func main() {
 		log.Printf("warning: migration error: %v", err)
 	}
 
+	if err := database.RebuildUserScores(ctx, db); err != nil {
+		log.Printf("warning: rebuild user scores error: %v", err)
+	} else {
+		log.Println("user scores rebuilt on startup")
+	}
+
 	redisClient, err := appredis.Connect(ctx, cfg.RedisURL)
 	if err != nil {
 		log.Fatalf("redis connection error: %v", err)

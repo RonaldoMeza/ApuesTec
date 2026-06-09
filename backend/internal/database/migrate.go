@@ -12,6 +12,54 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func RebuildUserScores(ctx context.Context, db *pgxpool.Pool) error {
+	query := `
+		INSERT INTO user_scores (user_id, total_points, predictions_count, exact_scores_count,
+		                         winner_correct_count, goal_difference_correct_count,
+		                         streak_count, last_scored_at, updated_at)
+		SELECT
+			u.id,
+			COALESCE(p_stats.total_points, 0),
+			COALESCE(p_stats.predictions_count, 0),
+			COALESCE(p_stats.exact_scores_count, 0),
+			COALESCE(p_stats.winner_correct_count, 0),
+			COALESCE(p_stats.goal_difference_correct_count, 0),
+			0,
+			se.last_scored_at,
+			NOW()
+		FROM users u
+		LEFT JOIN (
+			SELECT user_id,
+			       SUM(total_points) AS total_points,
+			       COUNT(id) FILTER (WHERE total_points > 0) AS predictions_count,
+			       COUNT(id) FILTER (WHERE is_exact_score = true) AS exact_scores_count,
+			       COUNT(id) FILTER (WHERE is_winner_correct = true) AS winner_correct_count,
+			       COUNT(id) FILTER (WHERE is_goal_difference_correct = true) AS goal_difference_correct_count
+			FROM predictions
+			GROUP BY user_id
+		) p_stats ON p_stats.user_id = u.id
+		LEFT JOIN (
+			SELECT user_id, MAX(created_at) AS last_scored_at
+			FROM score_events
+			GROUP BY user_id
+		) se ON se.user_id = u.id
+		ON CONFLICT (user_id) DO UPDATE SET
+			total_points = EXCLUDED.total_points,
+			predictions_count = EXCLUDED.predictions_count,
+			exact_scores_count = EXCLUDED.exact_scores_count,
+			winner_correct_count = EXCLUDED.winner_correct_count,
+			goal_difference_correct_count = EXCLUDED.goal_difference_correct_count,
+			last_scored_at = EXCLUDED.last_scored_at,
+			updated_at = NOW()
+	`
+	_, err := db.Exec(ctx, query)
+	if err != nil {
+		return fmt.Errorf("rebuild user scores: %w", err)
+	}
+	log.Println("user scores rebuilt successfully")
+	return nil
+}
+
 func RunMigrations(ctx context.Context, db *pgxpool.Pool, migrationsDir string) error {
 	_, err := db.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (

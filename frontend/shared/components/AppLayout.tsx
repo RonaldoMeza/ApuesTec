@@ -18,6 +18,7 @@ const navLinks = [
 
 const authNavLinks = [
   { href: "/predictions", label: "Mis predicciones" },
+  { href: "/rooms", label: "Salas" },
 ];
 
 export function AppLayout({ children, hideHeader = false }: AppLayoutProps) {

@@ -23,6 +23,17 @@ const (
 
 	ActionMatchResultUpdated = "MATCH_RESULT_UPDATED"
 	ActionScoreCalculated    = "SCORE_CALCULATED"
+
+	RoomCreated        = "ROOM_CREATED"
+	RoomUpdated        = "ROOM_UPDATED"
+	RoomClosed         = "ROOM_CLOSED"
+	RoomMemberJoined   = "ROOM_MEMBER_JOINED"
+	RoomMemberLeft     = "ROOM_MEMBER_LEFT"
+	RoomMemberRemoved  = "ROOM_MEMBER_REMOVED"
+	RoomRoleChanged    = "ROOM_ROLE_CHANGED"
+	RoomInviteCreated  = "ROOM_INVITE_CREATED"
+	RoomInviteUsed     = "ROOM_INVITE_USED"
+	RoomInviteRevoked  = "ROOM_INVITE_REVOKED"
 )
 
 type Repository interface {

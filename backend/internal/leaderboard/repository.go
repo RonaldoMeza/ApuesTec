@@ -21,9 +21,8 @@ func NewRepository(db *pgxpool.Pool) Repository {
 }
 
 func (r *repository) GetGlobalLeaderboard(ctx context.Context, limit, offset int) ([]LeaderboardEntry, int, error) {
-	countQuery := `SELECT COUNT(*) FROM user_scores`
 	var total int
-	if err := r.db.QueryRow(ctx, countQuery).Scan(&total); err != nil {
+	if err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count leaderboard: %w", err)
 	}
 

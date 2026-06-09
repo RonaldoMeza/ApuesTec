@@ -252,6 +252,35 @@ function RankingPreview() {
   );
 }
 
+function PrivateRoomsSection() {
+  return (
+    <section className="relative py-24">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 text-center">
+        <h2 className="text-3xl font-bold text-foreground">Salas</h2>
+        <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+          Crea salas privadas o públicas, invita con códigos temporales, busca salas en tu red o
+          únete con contraseña.
+        </p>
+        <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+          <Link
+            href="/rooms"
+            className="rounded-xl bg-gradient-to-r from-primary to-amber-500 px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary/30"
+          >
+            Explorar salas
+          </Link>
+          <Link
+            href="/register"
+            className="rounded-xl border border-border px-8 py-3 text-base font-medium text-foreground transition-all hover:bg-surface-hover"
+          >
+            Registrarse
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t border-border py-8">
@@ -273,6 +302,7 @@ export default function HomePage() {
       <ScoringRules />
       <PreviewSection />
       <RankingPreview />
+      <PrivateRoomsSection />
       <Footer />
     </AppLayout>
   );
