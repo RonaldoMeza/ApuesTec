@@ -1,0 +1,16 @@
+# Local development override for docker-compose.yml
+# Overrides nginx to proxy to host services (backend/frontend running locally).
+#
+# Usage:
+#   1. Start infra: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#   2. Backend:    cd backend  && .\run.ps1
+#   3. Frontend:   cd frontend && npm run dev
+#
+# Frontend connects to Nginx on http://localhost:8081 which proxies /api/ to backend.
+# Nginx points to host.docker.internal:8080 (local backend) and :3000 (local frontend).
+
+services:
+  nginx:
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    depends_on: []

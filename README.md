@@ -42,6 +42,17 @@ ApuesTec/
   PLAN_PROYECTO_APUESTEC.md
 ```
 
+## Fases implementadas
+
+| Fase | Descripción                          |
+|------|--------------------------------------|
+| 1    | Estructura base del monorepo         |
+| 2    | Infraestructura ejecutable (Docker)  |
+| 3    | Base de datos (PostgreSQL, migraciones, seeds) |
+| 4    | Backend base (Go/Gin, health, middlewares, Nginx) |
+| 5    | Autenticación backend (registro, login, JWT, refresh, roles, bloqueo, Google OAuth, auditoría) |
+| 6    | Frontend auth base (login, register, dashboard, perfil, landing pública, modo oscuro, protección de rutas, toast, avatar menú) |
+
 ## Reglas principales
 
 - No usar dinero real, pagos, cuotas reales, casas de apuestas ni logica de apuestas monetarias.
@@ -57,69 +68,72 @@ ApuesTec/
 - No acceder directamente a PostgreSQL ni Redis desde handlers.
 - No subir secretos ni archivos `.env` reales.
 
-## Ejecucion local con Docker Compose
+## Ejecucion
 
-Docker Compose levanta el monorepo con los servicios base de infraestructura para desarrollo local. Nginx es el unico punto de entrada publico; el backend y Redis quedan disponibles solo dentro de la red interna de Docker. PostgreSQL mantiene su comunicacion interna por `postgres:5432` y expone `localhost:5433` unicamente para administracion local en desarrollo.
+### Opcion 1: Todo con Docker
 
-Antes de levantar el entorno, crea los archivos locales de variables desde las plantillas:
-
-```bash
-cp database/.env.example database/.env
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env.local
-```
-
-En Windows PowerShell:
+Todos los servicios (frontend, backend, postgres, redis, nginx) corren dentro de Docker.
 
 ```powershell
+# Copiar plantillas de entorno
 Copy-Item database/.env.example database/.env
 Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env.local
+
+# Migraciones y seeds
+docker compose up -d postgres
+.\database\scripts\apply-migrations.ps1
+.\database\scripts\apply-seeds.ps1
+
+# Levantar todo
+docker compose up --build -d
+
+# Abrir http://localhost:8081
 ```
 
-Los archivos `.env` reales no deben commitearse. Las plantillas `.env.example` son la referencia documentada para crear credenciales locales.
-
-Levantar el entorno:
-
 ```bash
-docker compose up --build
+docker compose down   # Detener todo
+docker compose ps     # Estado de servicios
 ```
 
-Detener y eliminar contenedores de la ejecucion local:
+### Opcion 2: Infraestructura en Docker + app en local (desarrollo rapido)
 
-```bash
-docker compose down
-```
+PostgreSQL, Redis y Nginx corren en Docker. Backend y frontend se ejecutan localmente
+para iterar cambios rapidamente con hot reload.
 
-Consultar estado de servicios:
+```powershell
+# 1. Iniciar infraestructura
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
-```bash
-docker compose ps
-```
+# 2. Backend local (PowerShell)
+cd backend
+.\run.ps1
 
-Validar escalamiento horizontal del backend:
+# 3. Frontend local (otra terminal)
+cd frontend
+npm run dev
 
-```bash
-docker compose up --scale backend=3
+# Abrir http://localhost:8081 (via Nginx) o http://localhost:3000 (directo Next.js)
 ```
 
 ## Puertos
 
 - `http://localhost:8081`: punto de entrada principal por Nginx.
-- `frontend:3000`: puerto interno del frontend Next.js.
+- `http://localhost:3000`: frontend Next.js en modo local (sin Docker).
+- `frontend:3000`: puerto interno del frontend Next.js (Docker).
 - `backend:8080`: puerto interno de la API Go/Gin.
 - `postgres:5432`: puerto interno de PostgreSQL.
-- `localhost:5433`: puerto local de administracion de PostgreSQL para desarrollo, por ejemplo pgAdmin instalado en la maquina host.
-- `redis:6379`: puerto interno de Redis.
+- `localhost:5433`: puerto local de administracion de PostgreSQL para desarrollo.
+- `redis:6379`: puerto de Redis (interno de Docker y expuesto al host).
 
-## Servicios levantados
+## Servicios
 
-- `frontend`: aplicacion base Next.js para desarrollo local.
-- `backend`: API Go/Gin base con health checks y validacion de dependencias internas.
-- `postgres`: base de datos principal de ApuesTec con volumen persistente.
+- `postgres`: base de datos principal con volumen persistente.
 - `redis`: cache y capa de optimizacion con volumen persistente.
-- `nginx`: reverse proxy y punto de entrada principal.
-- `k6`: servicio preparado bajo perfil `tools` para pruebas posteriores.
+- `nginx`: reverse proxy, unico punto de entrada publico en `http://localhost:8081`.
+- `backend`: API Go/Gin con autenticacion JWT, registro, login, roles y auditoria.
+- `frontend`: Next.js con auth, landing, dashboard, perfil y proteccion de rutas.
+- `k6`: pruebas de estres bajo perfil `tools`.
 
 ## Persistencia y cache
 
@@ -207,19 +221,29 @@ Mas detalles operativos estan en `database/README.md` y `docs/fases/FASE_03_BASE
 
 ## Variables de entorno
 
-Docker Compose carga variables desde estos archivos locales:
+Cada capa tiene su archivo de entorno basado en `.env.example`:
 
-- `database/.env`: credenciales y base inicial de PostgreSQL, basado en `database/.env.example`.
-- `backend/.env`: configuracion de la API, URLs internas de PostgreSQL/Redis, JWT y OAuth, basado en `backend/.env.example`.
-- `frontend/.env.local`: variables publicas de Next.js, basado en `frontend/.env.example`.
+- `database/.env` — Credenciales de PostgreSQL
+- `backend/.env` — Configuracion de API, JWT, OAuth, conexiones a PostgreSQL/Redis
+- `frontend/.env.local` — Variables publicas de Next.js
 
 Variables clave por capa:
 
-- Database: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`.
-- Backend: `APP_NAME`, `APP_ENV`, `APP_PORT`, `API_PREFIX`, `APP_PUBLIC_URL`, `FRONTEND_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_URL`, `REDIS_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `PASSWORD_HASH_ALGO`, `BCRYPT_COST`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `COOKIE_SECURE`, `COOKIE_SAME_SITE`, `LOG_LEVEL`.
-- Frontend: `NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+| Capa     | Variable                          | Descripcion                            |
+|----------|-----------------------------------|----------------------------------------|
+| Database | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Credenciales de base de datos |
+| Backend  | `DATABASE_URL`                    | Conexion a PostgreSQL                  |
+| Backend  | `REDIS_URL`                       | Conexion a Redis                       |
+| Backend  | `JWT_ACCESS_SECRET`               | Secreto para firmar access tokens      |
+| Backend  | `JWT_REFRESH_SECRET`              | Secreto para firmar refresh tokens     |
+| Backend  | `CORS_ALLOWED_ORIGINS`            | Origenes permitidos para CORS          |
+| Backend  | `LOGIN_MAX_ATTEMPTS`              | Intentos fallidos antes de bloqueo     |
+| Backend  | `LOGIN_LOCK_MINUTES`              | Duracion del bloqueo                   |
+| Frontend | `NEXT_PUBLIC_API_URL`             | URL base de la API                     |
+| Frontend | `NEXT_PUBLIC_GOOGLE_CLIENT_ID`    | Client ID de Google OAuth              |
 
-No se deben commitear archivos `.env` reales ni secretos. El backend usa `postgres` y `redis` como hosts internos de Docker en `DATABASE_URL` y `REDIS_URL`; `DATABASE_URL` debe mantenerse apuntando a `postgres:5432` dentro de la red interna.
+No se deben commitear archivos `.env` reales ni secretos. Las plantillas `.env.example`
+son la referencia documentada para crear credenciales locales.
 
 ## k6
 
